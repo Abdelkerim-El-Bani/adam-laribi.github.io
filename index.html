@@ -293,13 +293,40 @@
             overflow: hidden;
             position: absolute;
             width: 100%;
+            filter: url('#goo');
         }
 
-        .lava-canvas {
+        .lava-lamp__svg {
             position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            border-radius: 50% / 10%;
+            width: 100%;
+            height: 100%;
+        }
+
+        .blob {
+            animation-direction: var(--direction);
+            animation-duration: calc(var(--speed) * 1s);
+            animation-iteration-count: infinite;
+            animation-name: blob-rise;
+            animation-timing-function: ease-in-out;
+            fill: #4bff91;
+            opacity: 0.9;
+            animation-delay: calc(var(--delay) * 1s);
+        }
+
+        .blob--top, .blob--bottom {
+            animation: blob-sway 20s infinite ease-in-out;
+        }
+
+        @keyframes blob-rise {
+            0%   { transform: translateY(110%) scale(1); }
+            50%  { transform: translateY(-50%) scale(1.1); }
+            100% { transform: translateY(-110%) scale(1); }
+        }
+
+        @keyframes blob-sway {
+            0%, 100% { transform: translateX(0); }
+            25%  { transform: translateX(15px); }
+            75%  { transform: translateX(-15px); }
         }
 
         /* ── Animations ── */
@@ -383,7 +410,17 @@
             <div class="lava-lamp__main">
                 <div class="lava-lamp__glass">
                     <div class="lava-lamp__lava">
-                        <canvas class="lava-canvas" id="blobCanvas"></canvas>
+                        <svg class="lava-lamp__svg" viewBox="0 0 150 420" preserveAspectRatio="xMidYMid slice">
+                            <ellipse class="blob blob--top"    cx="75" cy="30"  rx="35" ry="12" fill="#4bff91" opacity="0.9"/>
+                            <ellipse class="blob blob--bottom" cx="75" cy="395" rx="65" ry="12" fill="#4bff91" opacity="0.9"/>
+                            <circle class="blob" cx="40"  cy="420" r="22" style="--speed:20;--delay:0;--direction:alternate"/>
+                            <circle class="blob" cx="110" cy="420" r="30" style="--speed:25;--delay:-5;--direction:alternate-reverse"/>
+                            <circle class="blob" cx="75"  cy="420" r="26" style="--speed:22;--delay:-10;--direction:alternate"/>
+                            <circle class="blob" cx="30"  cy="420" r="18" style="--speed:18;--delay:-3;--direction:alternate-reverse"/>
+                            <circle class="blob" cx="115" cy="420" r="24" style="--speed:30;--delay:-7;--direction:alternate"/>
+                            <circle class="blob" cx="58"  cy="420" r="28" style="--speed:28;--delay:-12;--direction:alternate-reverse"/>
+                            <circle class="blob" cx="92"  cy="420" r="20" style="--speed:24;--delay:-2;--direction:alternate"/>
+                        </svg>
                     </div>
                 </div>
             </div>
@@ -392,127 +429,16 @@
     </div>
 </div>
 
-<script>
-const canvas = document.getElementById('blobCanvas');
-const ctx = canvas.getContext('2d');
-const lampSide = document.querySelector('.lamp-side');
-
-// Mouse position relative to the canvas
-let mouse = { x: -9999, y: -9999, inside: false };
-
-// Blob definitions: x/y are normalised 0-1 within canvas
-const blobs = [
-    { x: 0.27, y: 0.85, r: 22, vx: 0.3,  vy: -0.6, baseY: 0.85 },
-    { x: 0.73, y: 0.15, r: 30, vx: -0.4, vy:  0.5, baseY: 0.15 },
-    { x: 0.50, y: 0.55, r: 26, vx:  0.2, vy: -0.4, baseY: 0.55 },
-    { x: 0.20, y: 0.30, r: 18, vx:  0.5, vy:  0.3, baseY: 0.30 },
-    { x: 0.77, y: 0.70, r: 24, vx: -0.3, vy: -0.5, baseY: 0.70 },
-    { x: 0.39, y: 0.20, r: 28, vx:  0.4, vy:  0.6, baseY: 0.20 },
-    { x: 0.61, y: 0.40, r: 20, vx: -0.2, vy: -0.3, baseY: 0.40 },
-];
-
-function resize() {
-    const rect = canvas.parentElement.getBoundingClientRect();
-    canvas.width  = rect.width;
-    canvas.height = rect.height;
-}
-
-window.addEventListener('resize', resize);
-resize();
-
-// Track mouse over the lamp glass area
-const glassEl = document.querySelector('.lava-lamp__glass');
-document.addEventListener('mousemove', (e) => {
-    const rect = canvas.getBoundingClientRect();
-    mouse.x = e.clientX - rect.left;
-    mouse.y = e.clientY - rect.top;
-    mouse.inside = (
-        mouse.x >= 0 && mouse.x <= rect.width &&
-        mouse.y >= 0 && mouse.y <= rect.height
-    );
-});
-document.addEventListener('mouseleave', () => { mouse.inside = false; });
-
-// Metaball / goo rendering via threshold on sum-of-fields
-function draw() {
-    const W = canvas.width, H = canvas.height;
-    if (W === 0 || H === 0) { requestAnimationFrame(draw); return; }
-
-    // Physics update
-    blobs.forEach(b => {
-        // Slow natural float
-        b.vy += (Math.random() - 0.5) * 0.04;
-        b.vx += (Math.random() - 0.5) * 0.02;
-
-        // Gentle buoyancy: pull toward baseY
-        const dy = b.baseY * H - b.y;
-        b.vy += dy * 0.0004;
-
-        // Mouse attraction
-        if (mouse.inside) {
-            const dx = mouse.x - b.x;
-            const dy2 = mouse.y - b.y;
-            const dist = Math.sqrt(dx*dx + dy2*dy2) || 1;
-            const strength = Math.min(120 / (dist * dist), 1.2);
-            b.vx += (dx / dist) * strength * 0.18;
-            b.vy += (dy2 / dist) * strength * 0.18;
-        }
-
-        // Damping
-        b.vx *= 0.96;
-        b.vy *= 0.96;
-
-        // Clamp speed
-        const spd = Math.sqrt(b.vx*b.vx + b.vy*b.vy);
-        if (spd > 3.5) { b.vx = b.vx/spd*3.5; b.vy = b.vy/spd*3.5; }
-
-        b.x += b.vx;
-        b.y += b.vy;
-
-        // Bounce off walls (keep inside canvas)
-        const margin = b.r;
-        if (b.x < margin)   { b.x = margin;   b.vx = Math.abs(b.vx) * 0.6; }
-        if (b.x > W-margin) { b.x = W-margin; b.vx = -Math.abs(b.vx) * 0.6; }
-        if (b.y < margin)   { b.y = margin;   b.vy = Math.abs(b.vy) * 0.6; }
-        if (b.y > H-margin) { b.y = H-margin; b.vy = -Math.abs(b.vy) * 0.6; }
-    });
-
-    // Render metaballs with ImageData for the goo threshold effect
-    const imgData = ctx.createImageData(W, H);
-    const data = imgData.data;
-
-    // Subsample every 2 pixels for performance, then scale up
-    const step = 2;
-    for (let py = 0; py < H; py += step) {
-        for (let px = 0; px < W; px += step) {
-            let sum = 0;
-            for (let i = 0; i < blobs.length; i++) {
-                const b = blobs[i];
-                const dx = px - b.x, dy = py - b.y;
-                sum += (b.r * b.r) / (dx*dx + dy*dy + 1);
-            }
-            if (sum > 1.0) {
-                // Soft edge: ramp alpha based on how far above threshold
-                const alpha = Math.min((sum - 1.0) * 6, 1.0);
-                for (let oy = 0; oy < step && py+oy < H; oy++) {
-                    for (let ox = 0; ox < step && px+ox < W; ox++) {
-                        const idx = ((py+oy)*W + (px+ox)) * 4;
-                        data[idx]   = 75;         // R
-                        data[idx+1] = 255;        // G
-                        data[idx+2] = 145;        // B
-                        data[idx+3] = Math.round(alpha * 230);
-                    }
-                }
-            }
-        }
-    }
-
-    ctx.putImageData(imgData, 0, 0);
-    requestAnimationFrame(draw);
-}
-
-draw();
-</script>
+<!-- SVG filter for goo effect -->
+<svg style="position:absolute;width:0;height:0;">
+    <defs>
+        <filter id="goo">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="blur"/>
+            <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7" result="goo"/>
+            <feBlend in="SourceGraphic" in2="goo"/>
+        </filter>
+    </defs>
+</svg>
 
 </body>
 </html>
