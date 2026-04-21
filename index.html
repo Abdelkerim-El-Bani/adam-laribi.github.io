@@ -33,6 +33,19 @@
             max-width: 800px;
             margin: auto;
         }
+
+        /* GAME STYLE */
+        #game {
+            margin-top: 40px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            background: white;
+        }
+
+        #score {
+            margin-top: 10px;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -47,7 +60,55 @@
 
     <p><strong>Hobbies:</strong> watching the grass grow, fucking around and finding out </p>
 
+    <!-- GAME -->
+    <canvas id="game" width="400" height="300"></canvas>
+    <p id="score">Score: 0</p>
+    <p>Click the red circle 👇</p>
+
 </div>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+let target = { x: 200, y: 150, r: 20 };
+let score = 0;
+
+// Draw everything
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    ctx.beginPath();
+    ctx.arc(target.x, target.y, target.r, 0, Math.PI * 2);
+    ctx.fillStyle = "red";
+    ctx.fill();
+}
+
+// Move target randomly
+function moveTarget() {
+    target.x = Math.random() * (canvas.width - 40) + 20;
+    target.y = Math.random() * (canvas.height - 40) + 20;
+}
+
+// Handle clicks
+canvas.addEventListener("click", (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+
+    const dist = Math.hypot(mx - target.x, my - target.y);
+
+    if (dist < target.r) {
+        score++;
+        document.getElementById("score").innerText = "Score: " + score;
+        moveTarget();
+    }
+});
+
+// Game loop
+setInterval(draw, 16);
+moveTarget();
+</script>
 
 </body>
 </html>
